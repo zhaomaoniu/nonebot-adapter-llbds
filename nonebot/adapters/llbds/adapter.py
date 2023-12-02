@@ -1,7 +1,7 @@
 import json
 import asyncio
 import contextlib
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from typing_extensions import override
 
 from nonebot.drivers import Driver, ASGIMixin, URL, WebSocketServerSetup, WebSocket
@@ -24,7 +24,9 @@ class Adapter(BaseAdapter):
     def __init__(self, driver: Driver, **kwargs: Any):
         super().__init__(driver, **kwargs)
         self.llbds_config: Config = Config(**self.config.dict())
-        self.bot: Optional[Bot] = None
+        self.server_id = self.llbds_config.llbds_server_id
+        self.bots: Dict[str, Bot] = {}
+        self.ws: Optional[WebSocket] = None
         self._api_ret_dict = {}
         self._store = ResultStore()
 
@@ -51,7 +53,10 @@ class Adapter(BaseAdapter):
     async def _handle_ws(self, ws: WebSocket) -> None:
         await ws.accept()
 
-        token = json.loads(await ws.receive())["token"]
+        meta_pack: dict = json.loads(await ws.receive())
+
+        if (token := meta_pack.get("token")) is None:
+            await ws.close(1008, "Missing Authorization Header")
 
         llbds_token = self.llbds_config.llbds_token
         if llbds_token and llbds_token != token:
@@ -65,9 +70,9 @@ class Adapter(BaseAdapter):
             return None
 
         self.ws = ws
-        self.bot = Bot(self, self.llbds_config.llbds_server_id)
+        self.bots[self.server_id] = Bot(self, self.server_id)
 
-        log("INFO", f"<y>Bot {escape_tag(self.bot.self_id)}</y> connected")
+        log("INFO", f"<y>Bot {escape_tag(self.server_id)}</y> connected")
 
         try:
             while True:
@@ -75,36 +80,35 @@ class Adapter(BaseAdapter):
                 json_data = json.loads(data)
                 if "echo" in json_data:
                     self._store.add_result(json_data)
-                    log("DEBUG", f"Receive echo {json_data}")
                     continue
 
-                if event := self.json_to_event(json_data):
-                    asyncio.create_task(self.bot.handle_event(event))
+                if event := (await self.json_to_event(json_data)):
+                    asyncio.create_task(self.bots[self.server_id].handle_event(event))
 
         except WebSocketClosed:
             log(
                 "WARNING",
-                f"WebSocket for Bot {escape_tag(self.bot.self_id)} closed by peer",
+                f"WebSocket for <y>Bot {escape_tag(self.server_id)}</y> closed by peer",
             )
         except Exception as e:
             log(
                 "ERROR",
                 "<r><bg #f8bbd0>Error while process data from websocket "
-                f"for bot {escape_tag(self.bot.self_id)}.</bg #f8bbd0></r>",
+                f"for bot {escape_tag(self.server_id)}.</bg #f8bbd0></r>",
                 e,
             )
         finally:
-            self.bot_disconnect(self.bot)
+            self.bot_disconnect(self.bots[self.server_id])
             with contextlib.suppress(Exception):
                 await self.ws.close()
 
-    def json_to_event(self, data: dict) -> Optional[Event]:
+    async def json_to_event(self, data: dict) -> Optional[Event]:
         if not data.get("event_name"):
             return None
 
         for obj_data in data["objects"]:
             data[f'_{obj_data["type"]}'] = LLSEObject(self, obj_data["index"])
-        
+
         for direct_data in data["direct_data"]:
             data[direct_data["type"]] = direct_data["value"]
 

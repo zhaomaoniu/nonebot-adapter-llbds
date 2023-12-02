@@ -5,7 +5,6 @@ from typing_extensions import override
 
 from nonebot.adapters import Event as BaseEvent
 from nonebot.utils import escape_tag
-from pydantic.class_validators import root_validator
 
 from .message import Message
 
@@ -40,11 +39,11 @@ class Event(BaseEvent):
     def is_tome(self) -> bool:
         return False
 
+    # TODO
     @property
     def time(self) -> datetime:
-        if not hasattr(self, "_time"):
-            self._time = datetime.now()
-        return self._time
+        # 在事件实例化时，自动设置时间
+        ...
 
 
 class PlayerEvent(Event):

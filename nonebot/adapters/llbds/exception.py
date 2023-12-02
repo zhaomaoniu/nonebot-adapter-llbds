@@ -34,4 +34,16 @@ class UnauthorizedException(ActionFailed):
     pass
 
 class ApiNotAvailable(BaseApiNotAvailable, LLBDSAdapterException):
-    pass	
+    pass
+
+class LLBDSInternalError(LLBDSAdapterException):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__()
+        self.msg: Optional[str] = msg
+        """错误原因"""
+    
+    def __repr__(self):
+        return f"<LLBDSInternalError message={self.msg}>"
+    
+    def __str__(self):
+        return self.__repr__()
