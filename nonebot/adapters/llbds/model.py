@@ -2,7 +2,7 @@ import json
 import queue
 import asyncio
 import threading
-from typing import Any, Dict, Callable, TYPE_CHECKING
+from typing import Any, Dict, Optional, Callable, TYPE_CHECKING
 from nonebot.drivers import Request
 
 from .log import log
@@ -13,9 +13,12 @@ if TYPE_CHECKING:
 
 
 class LLSEObject:
-    def __init__(self, adapter: "Adapter", index: int) -> None:
+    def __init__(
+        self, adapter: "Adapter", index: int, name: Optional[str] = None
+    ) -> None:
         self._adapter = adapter
         self._index = index
+        self._name = name
         self._types = {}
 
     async def _get_llbds_result(
@@ -32,7 +35,11 @@ class LLSEObject:
             headers={"Authorization": self._adapter.llbds_config.llbds_token},
             timeout=self._adapter.config.api_timeout,
         )
-        resp = await self._adapter.request(request)
+        try:
+            resp = await self._adapter.request(request)
+        except Exception:
+            result_queue.put(None)
+            raise NetworkError("Failed to request LLBDS, check your config!")
 
         if resp.status_code == 500:
             # 错误请求导致的，不raise
@@ -45,7 +52,10 @@ class LLSEObject:
             return self.__getattribute__(attr)(*args, **kwargs)
 
         if resp.status_code != 200:
-            raise NetworkError(f"Failed to get attr {attr} from LLBDS! Status code: {resp.status_code}")
+            result_queue.put(None)
+            raise NetworkError(
+                f"Failed to get attr {attr} from LLBDS! Status code: {resp.status_code}"
+            )
 
         try:
             result = json.loads(resp.content)["data"]
@@ -60,6 +70,7 @@ class LLSEObject:
         elif isinstance(result, dict):
             result_queue.put(LLSEObject(self._adapter, result["index"]))
             return None
+        result_queue.put(None)
         raise ValueError("Invalid return value from LLBDS!")
 
     async def _get_type(self, result_queue: queue.Queue, name: str) -> None:
@@ -74,7 +85,6 @@ class LLSEObject:
 
         if resp.status_code != 200:
             result_queue.put({"type": "value", "value": None})
-            # log("WARNING", f"Failed to get type of {name} from LLBDS! Status code: {resp.status_code}")
             return None
 
         try:
@@ -99,6 +109,9 @@ class LLSEObject:
     def __getattribute__(self, name: str) -> Any:
         if name.startswith("_"):  # 避免内部属性触发递归调用
             return object.__getattribute__(self, name)
+
+        if name == "name" and self._name is not None:
+            return self._name
 
         if name in self._types:
             type_ = self._types[name]

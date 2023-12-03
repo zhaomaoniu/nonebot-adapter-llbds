@@ -11,16 +11,17 @@ from .log import log
 from .message import Message, MessageSegment
 
 if TYPE_CHECKING:
+    from llpy.types import T_RunCmdExRet
     from .adapter import Adapter
 
 
 def _check_nickname(event: Event, nickname: Set[str]):
     if not isinstance(event, MessageEvent):
         return None
-    
+
     if not event.get_message():
         event.message.append(MessageSegment.text(""))
-    
+
     first_msg_seg = event.message[0]
 
     nicknames = {re.escape(n) for n in nickname}
@@ -66,8 +67,16 @@ class Bot(BaseBot):
 
     async def send_server_message(self, message: Union[str, Message, MessageSegment]):
         raw_json = json.dumps({"rawtext": [{"text": str(message)}]})
-        await self.call_api("run_cmd", cmd=f"tellraw @a {raw_json}")
+        await self.call_api("runcmdEx", cmd=f"tellraw @a {raw_json}")
 
-    async def send_player_message(self, message: Union[str, Message, MessageSegment], player_name: str):
+    async def send_player_message(
+        self, message: Union[str, Message, MessageSegment], player_name: str
+    ):
         raw_json = json.dumps({"rawtext": [{"text": str(message)}]})
-        await self.call_api("run_cmd", cmd=f"tellraw {player_name} {raw_json}")
+        await self.call_api("runcmdEx", cmd=f"tellraw {player_name} {raw_json}")
+
+    async def runcmd(self, cmd: str) -> bool:
+        return await self.call_api("runcmd", cmd=cmd)
+
+    async def runcmdEx(self, cmd: str) -> "T_RunCmdExRet":
+        return await self.call_api("runcmdEx", cmd=cmd)

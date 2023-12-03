@@ -4,7 +4,14 @@ import contextlib
 from typing import Any, Dict, Optional
 from typing_extensions import override
 
-from nonebot.drivers import Driver, ASGIMixin, URL, WebSocketServerSetup, WebSocket
+from nonebot.drivers import (
+    Driver,
+    ASGIMixin,
+    URL,
+    WebSocketServerSetup,
+    WebSocket,
+    Request,
+)
 from nonebot.exception import WebSocketClosed
 from nonebot.adapters import Adapter as BaseAdapter
 from nonebot.internal.adapter.bot import Bot
@@ -14,7 +21,6 @@ from .bot import Bot
 from .config import Config
 from .event import *
 from .log import log
-from .store import ResultStore
 from .model import LLSEObject
 from .exception import NetworkError
 
@@ -28,7 +34,6 @@ class Adapter(BaseAdapter):
         self.bots: Dict[str, Bot] = {}
         self.ws: Optional[WebSocket] = None
         self._api_ret_dict = {}
-        self._store = ResultStore()
 
         self.setup()
 
@@ -78,9 +83,6 @@ class Adapter(BaseAdapter):
             while True:
                 data = await ws.receive()
                 json_data = json.loads(data)
-                if "echo" in json_data:
-                    self._store.add_result(json_data)
-                    continue
 
                 if event := (await self.json_to_event(json_data)):
                     asyncio.create_task(self.bots[self.server_id].handle_event(event))
@@ -88,7 +90,7 @@ class Adapter(BaseAdapter):
         except WebSocketClosed:
             log(
                 "WARNING",
-                f"WebSocket for <y>Bot {escape_tag(self.server_id)}</y> closed by peer",
+                f"WebSocket for Bot {escape_tag(self.server_id)} closed by peer",
             )
         except Exception as e:
             log(
@@ -98,7 +100,8 @@ class Adapter(BaseAdapter):
                 e,
             )
         finally:
-            self.bot_disconnect(self.bots[self.server_id])
+            if self.bots.get(self.server_id):
+                self.bot_disconnect(self.bots[self.server_id])
             with contextlib.suppress(Exception):
                 await self.ws.close()
 
@@ -106,8 +109,13 @@ class Adapter(BaseAdapter):
         if not data.get("event_name"):
             return None
 
+        if data["event_name"] == "Heartbeat":
+            return None
+
         for obj_data in data["objects"]:
-            data[f'_{obj_data["type"]}'] = LLSEObject(self, obj_data["index"])
+            data[f'_{obj_data["type"]}'] = LLSEObject(
+                self, obj_data["index"], obj_data.get("name", None)
+            )
 
         for direct_data in data["direct_data"]:
             data[direct_data["type"]] = direct_data["value"]
@@ -131,14 +139,19 @@ class Adapter(BaseAdapter):
             return MessageEvent.parse_obj(data)
 
     async def _call_api(self, bot: Bot, api: str, **data: Any) -> Any:
-        seq = self._store.get_seq()
-        json_data = json.dumps(
-            {"api": api, "data": data, "echo": str(seq)},
-        )
         log("DEBUG", f"Calling API {api} with data {data}")
-        await self.ws.send(json_data)
+
+        request = Request(
+            "GET",
+            f"{self.llbds_config.llbds_api_url}/llbds/{api}",
+            params=data,
+            headers={"Authorization": self.llbds_config.llbds_token},
+            timeout=self.config.api_timeout,
+        )
+        response = await self.request(request)
+        print(response.content)
 
         try:
-            return (await self._store.fetch(seq, self.config.api_timeout))["data"]
+            return json.loads(response.content)["data"]
         except asyncio.TimeoutError:
-            raise NetworkError(f"WebSocket call api {api} timeout") from None
+            raise NetworkError(f"Call api {api} timeout") from None
