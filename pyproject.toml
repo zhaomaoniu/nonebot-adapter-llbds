@@ -21,4 +21,4 @@ includes = ["nonebot"]
 
 [tool.pdm.version]
 source = "file"
-path = "nonebot/adapters/red/__init__.py"
+path = "nonebot/adapters/llbds/__init__.py"
