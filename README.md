@@ -6,30 +6,45 @@ _✨ LiteLoaderBDS适配 ✨_
 
 </div>
 
-## Notice
-The adapter uses the `thread.join()` method, causing a certain degree of blocking. Therefore, it is recommended for users to run LLBDS and NoneBot2 in the same intranet and be cautious about reducing the high-frequency usage of interfaces provided by this adapter.
+## 注意事项
+适配器使用 `thread.join()` 方法，会导致一定程度的阻塞。因此，建议用户在内网中运行 LLBDS 和 NoneBot2，并减少适配器提供的接口的高频使用
 
-## Config
-| Parameter             | Type             | Description                                               | Default Value                   |
-|-----------------------|------------------|-----------------------------------------------------------|---------------------------------|
-| LLBDS_TOKEN           | str              | LLBDS token, used for authentication when connecting to ws | N/A                             |
-| LLBDS_SERVER_ID       | Optional[str]    | LLBDS server ID, serves as Bot's self_id, can be left empty | LLBDS                         |
-| LLBDS_API_URL         | Optional[str]    | LLBDS API address, e.g., `http://127.0.0.1:8081`          | http://127.0.0.1:8081        |
+适配器目前尚未完善，欢迎在 bot.py 中补充 API (LLEventBridge那边也是)，在 event.py 中补充事件！
 
-## Driver
+## 配置
+| 参数                   | 类型              | 描述                                                   | 默认值                         |
+|-----------------------|-------------------|--------------------------------------------------------|--------------------------------|
+| LLBDS_TOKEN           | str             | LLBDS令牌，用于连接ws时进行身份验证                        | 无                             |
+| LLBDS_SERVER_ID       | Optional[str]       | LLBDS服务器ID，作为机器人的self_id，可留空                 | LLBDS                         |
+| LLBDS_API_URL         | Optional[str]       | LLBDS API地址，例如 `http://127.0.0.1:8081`              | http://127.0.0.1:8081        |
+
+## 驱动
 DRIVER=~fastapi+~aiohttp
 
 ## LLBDS
-See [LLEventBridge](https://github.com/zhaomaoniu/LLEventBridge)
+参阅 [LLEventBridge](https://github.com/zhaomaoniu/LLEventBridge)
 
-## Example Plugin
+## 示例插件
 ```python
-from nonebot import on_notice
-from nonebot_adapter_llbds.event import JoinEvent
+from nonebot import on_notice, on_command
+from nonebot.params import CommandArg
+from nonebot.log import logger
+from nonebot_adapter_llbds.event import JoinEvent, MessageEvent
+from nonebot_adapter_llbds.message import Message
 
-join = on_notice()
+
+notice = on_notice()
+echo = on_command("echo", aliases={"回声"})
+
+
+@notice.handle()
+async def handle_join(event: JoinEvent):
+    event.player.sendText("Hello, world!")
+
 
 @echo.handle()
-async def handle_join(event: JoinEvent):
-    event.player.sendToast(f"Welcome {event.player.name}!", "hello from nonebot-adapter-llbds")
+async def handle_echo(event: MessageEvent, message: Message = CommandArg()):
+    await echo.send(message)
+    logger.info(f"玩家 {event.player.name} 发送了 {event.message}")
+
 ```
