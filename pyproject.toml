@@ -18,3 +18,7 @@ build-backend = "pdm.backend"
 
 [tool.pdm.build]
 includes = ["nonebot"]
+
+[tool.pdm.version]
+source = "file"
+path = "nonebot/adapters/red/__init__.py"
