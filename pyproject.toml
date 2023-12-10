@@ -1,0 +1,17 @@
+[project]
+name = "nonebot-adapter-llbds"
+version = "0.1.0"
+description = "NoneBot2 LLBDS适配器 / LLBDS Adapter for NoneBot2"
+authors = [
+    {name = "zhaomaoniu", email = "2667292003@qq.com"},
+]
+dependencies = [
+    "nonebot2>=2.1.2",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
