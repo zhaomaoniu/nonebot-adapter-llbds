@@ -140,8 +140,6 @@ class Adapter(BaseAdapter):
             return MessageEvent.parse_obj(data)
 
     async def _call_api(self, bot: Bot, api: str, **data: Any) -> Any:
-        log("DEBUG", f"Calling API {api} with data {data}")
-
         request = Request(
             "GET",
             f"{self.llbds_config.llbds_api_url}/llbds/{api}",
@@ -150,7 +148,6 @@ class Adapter(BaseAdapter):
             timeout=self.config.api_timeout,
         )
         response = await self.request(request)
-        print(response.content)
 
         try:
             return json.loads(response.content)["data"]
