@@ -76,6 +76,7 @@ class Adapter(BaseAdapter):
 
         self.ws = ws
         self.bots[self.server_id] = Bot(self, self.server_id)
+        self.bot_connect(self.bots[self.server_id])
 
         log("INFO", f"<y>Bot {escape_tag(self.server_id)}</y> connected")
 
