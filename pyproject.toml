@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-adapter-llbds"
-version = "0.1.1"
+version = "0.1.2"
 description = "NoneBot2 LLBDS适配器 / LLBDS Adapter for NoneBot2"
 authors = [
     {name = "zhaomaoniu", email = "2667292003@qq.com"},
