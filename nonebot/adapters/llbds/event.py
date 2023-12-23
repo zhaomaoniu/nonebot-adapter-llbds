@@ -111,7 +111,7 @@ class PlayerDieEvent(PlayerEvent):
     def get_event_description(self) -> str:
         return (
             f"玩家 {self.player.name} 死亡"
-            if self.source is None
+            if self.source.name is None
             else f"玩家 {self.player.name} 因 {self.source.name} 死亡"
         )
 
